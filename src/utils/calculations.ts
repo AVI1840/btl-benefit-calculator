@@ -31,6 +31,30 @@ export function allChildrenGrown(children: { age: number }[]): boolean {
   return children.length > 0 && children.every((child) => child.age >= 18);
 }
 
+/**
+ * Get disability deduction for any percentage.
+ * For exact matches (20,30,...100,101) use the table directly.
+ * For in-between values, round DOWN to nearest 10 (e.g. 25% → 20%, 35% → 30%).
+ * Below 20% = no deduction.
+ */
+export function getDisabilityMonthlyDeduction(percent: number): number {
+  // Exact match
+  if (DISABILITY_DEDUCTIONS[percent] !== undefined) {
+    return DISABILITY_DEDUCTIONS[percent];
+  }
+  // Above 100 → use 101 (special)
+  if (percent > 100) {
+    return DISABILITY_DEDUCTIONS[101];
+  }
+  // Below 20 → no deduction
+  if (percent < 20) {
+    return 0;
+  }
+  // Round down to nearest 10
+  const rounded = Math.floor(percent / 10) * 10;
+  return DISABILITY_DEDUCTIONS[rounded] || 0;
+}
+
 export function calculateBaseDailyRate(state: CalculatorState, minDailyRate: number): number {
   const { employmentStatus, age } = state;
 
@@ -42,9 +66,10 @@ export function calculateBaseDailyRate(state: CalculatorState, minDailyRate: num
   }
 
   if (employmentStatus === 'self_employed') {
-    const { prevYearIncome, currentYearIncome } = state;
-    const incomeDiff = prevYearIncome - currentYearIncome;
-    const monthlyIncome = incomeDiff / 12;
+    const { prevYearIncome } = state;
+    // For self-employed: base on pre-event annual income / 12 / 30
+    // This represents the daily earning capacity before the event
+    const monthlyIncome = prevYearIncome / 12;
     const dailyRate = monthlyIncome / 30;
     return Math.max(minDailyRate, dailyRate);
   }
@@ -60,21 +85,27 @@ export function calculateHospitalReduction(
   state: CalculatorState,
   hasChildUnder21Flag: boolean,
   allChildrenGrownFlag: boolean
-): { rate: number; applied: boolean; reason: string } {
+): { rate: number; applied: boolean; reason: string; applicableDays: number } {
   const { hospitalized, hospitalDays, age, maritalStatus, hasChildren } = state;
 
   if (!hospitalized || hospitalDays <= 14) {
-    return { rate: 0, applied: false, reason: '' };
+    return { rate: 0, applied: false, reason: '', applicableDays: 0 };
   }
 
+  // Only days BEYOND 14 are subject to reduction
+  const applicableDays = hospitalDays - 14;
+
+  // Age 14-18
   if (age !== null && age >= 14 && age < 18) {
     return {
       rate: 0.125,
       applied: true,
-      reason: 'הפחתה של 12.5% עבור ימי אשפוז (גיל 14-18)',
+      reason: `הפחתה של 12.5% על ${applicableDays} ימי אשפוז (מעבר ל-14 הראשונים, גיל 14-18)`,
+      applicableDays,
     };
   }
 
+  // 18+ single without minor children
   if (
     age !== null &&
     age >= 18 &&
@@ -84,11 +115,12 @@ export function calculateHospitalReduction(
     return {
       rate: 0.25,
       applied: true,
-      reason: 'הפחתה של 25% עבור ימי אשפוז (רווק/ה ללא ילדים מתחת לגיל 18)',
+      reason: `הפחתה של 25% על ${applicableDays} ימי אשפוז (מעבר ל-14 הראשונים, רווק/ה ללא ילדים מתחת לגיל 18)`,
+      applicableDays,
     };
   }
 
-  return { rate: 0, applied: false, reason: '' };
+  return { rate: 0, applied: false, reason: '', applicableDays: 0 };
 }
 
 export function calculateDisabilityDeduction(
@@ -97,7 +129,7 @@ export function calculateDisabilityDeduction(
   daysOfDisability: number
 ): number {
   if (!recognizedDisability || !disabilityPercent) return 0;
-  const monthlyDeduction = DISABILITY_DEDUCTIONS[disabilityPercent] || 0;
+  const monthlyDeduction = getDisabilityMonthlyDeduction(disabilityPercent);
   return (monthlyDeduction / 30) * daysOfDisability;
 }
 
@@ -116,7 +148,15 @@ export function calculateOtherBenefitsDeduction(
 }
 
 export function calculateResult(state: CalculatorState): CalculationResult {
-  const daysOfDisability = calculateDaysDifference(state.absenceStartDate, state.absenceEndDate);
+  const rawDays = calculateDaysDifference(state.absenceStartDate, state.absenceEndDate);
+
+  // Waiting period: first 2 days are unpaid (unless incapacity > 12 days, then paid retroactively)
+  const waitingDays = rawDays > 12 ? 0 : Math.min(2, rawDays);
+  const daysOfDisability = Math.max(0, rawDays - waitingDays);
+
+  // Max period cap: 182 days (6 months) per event, extendable
+  const cappedDays = Math.min(daysOfDisability, CONSTANTS.MAX_DAYS_PER_EVENT);
+
   const absenceFactor = getAbsenceFactor(state.absenceScope);
 
   const hasChildUnder21Flag = hasChildUnder21(state.children);
@@ -132,29 +172,33 @@ export function calculateResult(state: CalculatorState): CalculationResult {
   const dailyRate = clampedDailyRate * absenceFactor;
 
   const hospitalReduction = calculateHospitalReduction(state, hasChildUnder21Flag, allChildrenGrownFlag);
-  const hospitalDays = state.hospitalized ? Math.min(state.hospitalDays, daysOfDisability) : 0;
 
+  // Payment calculation with corrected hospital reduction
   let paymentBeforeDeductions: number;
-  if (hospitalReduction.applied && hospitalDays > 0) {
-    const regularDays = daysOfDisability - hospitalDays;
-    const regularPayment = dailyRate * regularDays;
-    const hospitalPayment = dailyRate * (1 - hospitalReduction.rate) * hospitalDays;
-    paymentBeforeDeductions = regularPayment + hospitalPayment;
+  if (hospitalReduction.applied && hospitalReduction.applicableDays > 0) {
+    // First 14 hospital days + all non-hospital days = full rate
+    const fullRateDays = cappedDays - hospitalReduction.applicableDays;
+    const fullPayment = dailyRate * fullRateDays;
+    // Days beyond 14 in hospital = reduced rate
+    const reducedPayment = dailyRate * (1 - hospitalReduction.rate) * hospitalReduction.applicableDays;
+    paymentBeforeDeductions = fullPayment + reducedPayment;
   } else {
-    paymentBeforeDeductions = dailyRate * daysOfDisability;
+    paymentBeforeDeductions = dailyRate * cappedDays;
   }
 
   const disabilityDeduction = calculateDisabilityDeduction(
-    state.recognizedDisability, state.disabilityPercent, daysOfDisability
+    state.recognizedDisability, state.disabilityPercent, cappedDays
   );
-  const otherBenefitsDeduction = calculateOtherBenefitsDeduction(state, daysOfDisability);
-  const healthInsuranceDeduction = CONSTANTS.HEALTH_INSURANCE_MONTHLY * (daysOfDisability / 30);
+  const otherBenefitsDeduction = calculateOtherBenefitsDeduction(state, cappedDays);
+  const healthInsuranceDeduction = CONSTANTS.HEALTH_INSURANCE_MONTHLY * (cappedDays / 30);
 
   const totalDeductions = disabilityDeduction + otherBenefitsDeduction + healthInsuranceDeduction;
   const totalPayment = Math.max(0, paymentBeforeDeductions - totalDeductions);
 
   return {
-    daysOfDisability,
+    rawDays,
+    waitingDays,
+    daysOfDisability: cappedDays,
     dailyRate,
     baseDailyRate,
     minDailyRate,
@@ -164,7 +208,9 @@ export function calculateResult(state: CalculatorState): CalculationResult {
     disabilityDeduction,
     otherBenefitsDeduction,
     healthInsuranceDeduction,
-    hospitalReduction: hospitalReduction.applied ? dailyRate * hospitalReduction.rate * hospitalDays : 0,
+    hospitalReduction: hospitalReduction.applied
+      ? dailyRate * hospitalReduction.rate * hospitalReduction.applicableDays
+      : 0,
     totalDeductions,
     totalPayment,
     hasChildUnder21: hasChildUnder21Flag,
@@ -172,6 +218,8 @@ export function calculateResult(state: CalculatorState): CalculationResult {
     hospitalReductionRate: hospitalReduction.rate,
     hospitalReductionApplied: hospitalReduction.applied,
     hospitalReductionReason: hospitalReduction.reason,
+    hospitalApplicableDays: hospitalReduction.applicableDays,
+    cappedAtMax: rawDays - waitingDays > CONSTANTS.MAX_DAYS_PER_EVENT,
   };
 }
 

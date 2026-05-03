@@ -96,8 +96,9 @@ export function Step6Hospitalization({ state, updateState, errors }: Step6Props)
               <div>
                 <p className="font-medium">הפחתת אשפוז תופעל</p>
                 <p className="text-sm mt-1">
-                  מאחר שיש יותר מ-14 ימי אשפוז, תופעל הפחתה של {reductionInfo.rate}% על ימי האשפוז בלבד
-                  ({reductionInfo.reason}).
+                  מאחר שיש יותר מ-14 ימי אשפוז, תופעל הפחתה של {reductionInfo.rate}% על {state.hospitalDays - 14} ימי האשפוז
+                  שמעבר ל-14 הראשונים ({reductionInfo.reason}).
+                  14 ימי האשפוז הראשונים — ללא הפחתה.
                 </p>
               </div>
             </div>

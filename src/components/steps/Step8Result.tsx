@@ -1,6 +1,6 @@
-import { CalculatorState, CalculationResult, CONSTANTS, DISABILITY_DEDUCTIONS, BENEFIT_TYPE_LABELS } from '@/types/calculator';
-import { formatCurrency, formatNumber } from '@/utils/calculations';
-import { Calculator, Calendar, TrendingDown, TrendingUp, AlertCircle, Info, Banknote } from 'lucide-react';
+import { CalculatorState, CalculationResult, CONSTANTS, DISABILITY_DEDUCTIONS, BENEFIT_TYPE_LABELS, EMPLOYMENT_STATUS_LABELS, MARITAL_STATUS_LABELS, ABSENCE_SCOPE_LABELS } from '@/types/calculator';
+import { formatCurrency } from '@/utils/calculations';
+import { Calculator, Calendar, TrendingDown, TrendingUp, AlertCircle, Info, Banknote, Clock, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Step8Props {
@@ -13,7 +13,7 @@ export function Step8Result({ state, result }: Step8Props) {
     <div className="animate-fade-in">
       <h2 className="text-xl font-semibold text-foreground mb-6">תוצאת החישוב</h2>
 
-      {/* כרטיס סיכום ראשי */}
+      {/* Main result card */}
       <Card className="result-card mb-6">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-success">
@@ -25,12 +25,80 @@ export function Step8Result({ state, result }: Step8Props) {
           <p className="text-4xl font-bold text-foreground">{formatCurrency(result.totalPayment)}</p>
           <p className="text-sm text-muted-foreground mt-2">
             עבור {result.daysOfDisability} ימי אי כושר
+            {result.waitingDays > 0 && ` (לא כולל ${result.waitingDays} ימי המתנה)`}
           </p>
         </CardContent>
       </Card>
 
+      {/* Warnings */}
+      {result.cappedAtMax && (
+        <div className="error-box flex items-start gap-3 mb-4">
+          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-medium">תקופה חורגת מהמקסימום</p>
+            <p className="text-sm mt-1">
+              התקופה המקורית ({result.rawDays} ימים) חורגת מהמקסימום של {CONSTANTS.MAX_DAYS_PER_EVENT} ימים.
+              החישוב מבוסס על {result.daysOfDisability} ימים. להארכה יש לפנות לוועדה רפואית.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {result.waitingDays > 0 && (
+        <div className="info-box flex items-start gap-3 mb-4">
+          <Clock className="w-5 h-5 mt-0.5 flex-shrink-0" aria-hidden="true" />
+          <div>
+            <p className="font-medium">תקופת המתנה</p>
+            <p className="text-sm mt-1">
+              {result.waitingDays} ימים ראשונים אינם משולמים (תקופת המתנה).
+              אם תקופת אי הכושר עולה על 12 ימים, ימי ההמתנה משולמים רטרואקטיבית.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Input summary */}
+      <Card className="mb-4">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <User className="w-5 h-5 text-primary" />
+            סיכום נתונים שהוזנו
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-x-8 gap-y-1 sm:grid-cols-2 text-sm">
+            <div className="calc-row">
+              <span className="calc-label">גיל ביום האירוע</span>
+              <span className="calc-value">{state.age}</span>
+            </div>
+            <div className="calc-row">
+              <span className="calc-label">מצב משפחתי</span>
+              <span className="calc-value">{state.maritalStatus ? MARITAL_STATUS_LABELS[state.maritalStatus] : '—'}</span>
+            </div>
+            <div className="calc-row">
+              <span className="calc-label">מצב תעסוקה</span>
+              <span className="calc-value">{state.employmentStatus ? EMPLOYMENT_STATUS_LABELS[state.employmentStatus] : '—'}</span>
+            </div>
+            <div className="calc-row">
+              <span className="calc-label">ילדים</span>
+              <span className="calc-value">{state.hasChildren ? `${state.children.length} (גילאי: ${state.children.map(c => c.age).join(', ')})` : 'אין'}</span>
+            </div>
+            {state.recognizedDisability && state.disabilityPercent && (
+              <div className="calc-row">
+                <span className="calc-label">נכות מוכרת</span>
+                <span className="calc-value">{state.disabilityPercent === 101 ? 'מעל 100%' : `${state.disabilityPercent}%`}</span>
+              </div>
+            )}
+            <div className="calc-row">
+              <span className="calc-label">היקף אי כושר</span>
+              <span className="calc-value">{ABSENCE_SCOPE_LABELS[state.absenceScope]}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
-        {/* ימי אי כושר */}
+        {/* Days */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -41,8 +109,18 @@ export function Step8Result({ state, result }: Step8Props) {
           <CardContent>
             <div className="space-y-2">
               <div className="calc-row">
-                <span className="calc-label">ימי אי כושר</span>
-                <span className="calc-value">{result.daysOfDisability} ימים</span>
+                <span className="calc-label">סה״כ ימים (גולמי)</span>
+                <span className="calc-value">{result.rawDays} ימים</span>
+              </div>
+              {result.waitingDays > 0 && (
+                <div className="calc-row">
+                  <span className="calc-label">ימי המתנה</span>
+                  <span className="calc-value text-destructive">-{result.waitingDays} ימים</span>
+                </div>
+              )}
+              <div className="calc-row border-t-2 pt-2">
+                <span className="calc-label font-medium">ימים לתשלום</span>
+                <span className="calc-value text-primary">{result.daysOfDisability} ימים</span>
               </div>
               <div className="calc-row">
                 <span className="calc-label">היקף אי כושר</span>
@@ -58,7 +136,7 @@ export function Step8Result({ state, result }: Step8Props) {
           </CardContent>
         </Card>
 
-        {/* תעריף יומי */}
+        {/* Rates */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -88,7 +166,7 @@ export function Step8Result({ state, result }: Step8Props) {
           </CardContent>
         </Card>
 
-        {/* סכום לפני ניכויים */}
+        {/* Before deductions */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -105,7 +183,7 @@ export function Step8Result({ state, result }: Step8Props) {
           </CardContent>
         </Card>
 
-        {/* ניכויים */}
+        {/* Deductions */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -146,7 +224,7 @@ export function Step8Result({ state, result }: Step8Props) {
         </Card>
       </div>
 
-      {/* הודעות דינמיות */}
+      {/* Dynamic info messages */}
       <div className="mt-6 space-y-4">
         {result.hospitalReductionApplied && (
           <div className="info-box flex items-start gap-3">
@@ -154,6 +232,9 @@ export function Step8Result({ state, result }: Step8Props) {
             <div>
               <p className="font-medium">הפחתת אשפוז הופעלה</p>
               <p className="text-sm mt-1">{result.hospitalReductionReason}</p>
+              <p className="text-sm mt-1">
+                14 ימי אשפוז ראשונים — ללא הפחתה. {result.hospitalApplicableDays} ימים נוספים — הפחתה של {result.hospitalReductionRate * 100}%.
+              </p>
             </div>
           </div>
         )}
@@ -165,8 +246,8 @@ export function Step8Result({ state, result }: Step8Props) {
               <p className="font-medium">ניכוי נכות</p>
               <p className="text-sm mt-1">
                 עבור {state.disabilityPercent === 101 ? 'מעל 100%' : `${state.disabilityPercent}%`} נכות,
-                הניכוי החודשי הוא {formatCurrency(DISABILITY_DEDUCTIONS[state.disabilityPercent])}.
-                לתקופה של {result.daysOfDisability} ימים, הניכוי הוא {formatCurrency(result.disabilityDeduction)}.
+                הניכוי החודשי הוא {formatCurrency(DISABILITY_DEDUCTIONS[state.disabilityPercent] || 0)}.
+                לתקופה של {result.daysOfDisability} ימים: {formatCurrency(result.disabilityDeduction)}.
               </p>
             </div>
           </div>

@@ -62,6 +62,8 @@ export interface CalculatorState {
 }
 
 export interface CalculationResult {
+  rawDays: number;
+  waitingDays: number;
   daysOfDisability: number;
   dailyRate: number;
   baseDailyRate: number;
@@ -80,6 +82,8 @@ export interface CalculationResult {
   hospitalReductionRate: number;
   hospitalReductionApplied: boolean;
   hospitalReductionReason: string;
+  hospitalApplicableDays: number;
+  cappedAtMax: boolean;
 }
 
 export const CONSTANTS = {
@@ -88,7 +92,9 @@ export const CONSTANTS = {
   MAX_MULTIPLIER_OF_BASE: 5,
   HEALTH_INSURANCE_MONTHLY: 25,
   DAYS: 30,
-  SALARY_CAP: 47465, // תקרת שכר לחישוב
+  SALARY_CAP: 47465,
+  MAX_DAYS_PER_EVENT: 182, // 6 months max per event
+  WAITING_DAYS: 2, // first 2 days unpaid (unless > 12 days total)
 } as const;
 
 export const DISABILITY_DEDUCTIONS: Record<number, number> = {

@@ -99,9 +99,10 @@ export function Step4Employment({ state, updateState, errors }: Step4Props) {
 
           <FormField
             id="prevYearIncome"
-            label="הכנסה שנתית בשנה שלפני האירוע"
+            label="הכנסה שנתית (שנה שלפני האירוע)"
             required
             error={errors.prevYearIncome}
+            helpText="הכנסה שנתית ברוטו כפי שדווחה למס הכנסה"
           >
             <Input
               type="number"
