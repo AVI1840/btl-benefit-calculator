@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Government-style professional design system */
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 220 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 15%;
+
+    --primary: 210 70% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 25% 92%;
+    --secondary-foreground: 220 25% 20%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 220 15% 45%;
+
+    --accent: 45 90% 50%;
+    --accent-foreground: 220 25% 15%;
+
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 60% 40%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 210 70% 35%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Calculator-specific tokens */
+    --table-header: 210 60% 25%;
+    --table-header-foreground: 0 0% 100%;
+    --table-row-odd: 210 20% 97%;
+    --table-row-even: 0 0% 100%;
+    --table-total: 210 40% 92%;
+    --option-border: 210 30% 80%;
+    --step-active: 210 70% 35%;
+    --step-inactive: 210 15% 70%;
+    --step-completed: 145 60% 40%;
+  }
+
+  .dark {
+    --background: 220 25% 10%;
+    --foreground: 210 20% 95%;
+
+    --card: 220 25% 12%;
+    --card-foreground: 210 20% 95%;
+
+    --popover: 220 25% 12%;
+    --popover-foreground: 210 20% 95%;
+
+    --primary: 210 60% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 20%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 220 20% 18%;
+    --muted-foreground: 210 15% 60%;
+
+    --accent: 45 80% 55%;
+    --accent-foreground: 220 25% 10%;
+
+    --destructive: 0 60% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 145 50% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 220 20% 22%;
+    --input: 220 20% 22%;
+    --ring: 210 60% 50%;
+
+    --table-header: 210 50% 20%;
+    --table-header-foreground: 0 0% 100%;
+    --table-row-odd: 220 25% 14%;
+    --table-row-even: 220 25% 12%;
+    --table-total: 210 30% 18%;
+    --option-border: 220 20% 30%;
+    --step-active: 210 60% 50%;
+    --step-inactive: 220 15% 40%;
+    --step-completed: 145 50% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    direction: rtl;
+  }
+
+  body {
+    @apply bg-background text-foreground font-heebo antialiased;
+  }
+
+  /* Numeric input styling - prevent spinners */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .calculator-card {
+    @apply bg-card rounded-lg border border-border shadow-sm p-6;
+  }
+
+  .step-indicator {
+    @apply flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-all duration-300;
+  }
+
+  .step-indicator-active {
+    @apply bg-primary text-primary-foreground shadow-md;
+  }
+
+  .step-indicator-completed {
+    @apply bg-success text-success-foreground;
+  }
+
+  .step-indicator-inactive {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .table-header-cell {
+    @apply bg-table-header text-table-header-foreground font-semibold p-3 text-center;
+  }
+
+  .table-row-odd {
+    @apply bg-table-row-odd;
+  }
+
+  .table-row-even {
+    @apply bg-table-row-even;
+  }
+
+  .table-total-row {
+    @apply bg-table-total font-bold;
+  }
+
+  .numeric-input {
+    @apply w-full text-center border border-input rounded-md p-2.5 bg-card text-foreground
+           focus:ring-2 focus:ring-ring focus:border-transparent 
+           transition-all duration-200
+           placeholder:text-muted-foreground/60;
+  }
+
+  .btn-reset {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-export {
+    @apply bg-success text-success-foreground hover:bg-success/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-2.5 rounded-md font-medium transition-all duration-200 hover:shadow-md;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  .calculator-card {
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  .print-table table {
+    border: 1px solid #333;
+  }
+
+  .print-table th {
+    background: #1B3A5C !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-table td {
+    border: 1px solid #ddd;
+  }
+
+  header {
+    background: white !important;
+    color: #1B3A5C !important;
+    border-bottom: 3px solid #1B3A5C;
+  }
+
+  footer {
+    display: none !important;
+  }
+
+  /* Hide feedback button */
+  .fixed {
+    display: none !important;
+  }
+}
